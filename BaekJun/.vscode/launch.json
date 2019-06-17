@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "CodeLens (Launch) - Main",
+            "request": "launch",
+            "mainClass": "Main",
+            "projectName": "BaekJun_6032aa90"
+        },
+        {
+            "type": "java",
+            "name": "CodeLens (Launch) - Sum",
+            "request": "launch",
+            "mainClass": "Main"
+        }
+    ]
+}
