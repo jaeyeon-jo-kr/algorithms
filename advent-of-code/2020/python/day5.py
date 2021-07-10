@@ -16,8 +16,11 @@ def select_row_num(rng, ch):
             'B':max}[ch]
 
 def search_row_num(chars):
-    result = reduce(search_row, chars, (0, 127))
-    return select_row_num(result, chars[len(chars)-1])
+    #result = reduce(search_row, chars, (0, 127))
+    rng = (0, 127)
+    for ch in chars:
+        rng = search_row(rng, ch)
+    return select_row_num(rng, chars[len(chars)-1])
 
 def search_col(rng, ch):
     min, max = rng
@@ -34,8 +37,11 @@ def select_col_num(rng, ch):
             'R':max}[ch]
 
 def search_col_num(chars):
-    result = reduce(search_col, chars, (0, 7))
-    return select_col_num(result, chars[len(chars)-1])
+    #result = reduce(search_col, chars, (0, 7))
+    rng = (0, 7)
+    for ch in chars:
+        rng = search_row(rng, ch)
+    return select_col_num(rng, chars[len(chars)-1])
 
 def row_part(chars):
     return chars[0:7]
@@ -52,14 +58,15 @@ def solve_day1():
     file = open("day5.txt", 'r')
     input = file.read()
     inputs = input.splitlines()
-    ids = map(find_seat_id, inputs)
+    #ids = map(find_seat_id, inputs)
+    ids = tuple(find_seat_id(x) for x in inputs)
     return max(ids)
 
 def id_list():
     file = open("day5.txt", 'r')
     input = file.read()
     inputs = input.splitlines()
-    return tuple(map(find_seat_id, inputs))
+    return tuple(find_seat_id(chars) for chars in inputs)
 
 def exists(seat_id, id_list):
     try:
@@ -93,12 +100,12 @@ def is_proper(id_list):
     return fn
     
 def find_my_seat(id_list):
-    return tuple(filter(is_proper(id_list), id_list))[0] + 1
+    result = tuple(id for id in id_list if is_proper(id_list)(id))
+    return result[0] + 1
 
 id_lst = id_list()
+
 
 def solve_day2():
     return find_my_seat(id_lst)
 
-
-solve_day2()
