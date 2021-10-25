@@ -40,7 +40,7 @@ def search_col_num(chars):
     #result = reduce(search_col, chars, (0, 7))
     rng = (0, 7)
     for ch in chars:
-        rng = search_row(rng, ch)
+        rng = search_col(rng, ch)
     return select_col_num(rng, chars[len(chars)-1])
 
 def row_part(chars):
