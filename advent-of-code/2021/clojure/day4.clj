@@ -131,19 +131,43 @@
 
 (defn scan-winner
   [boards]
-  (some bingo? boards))
+  (->> (filter bingo? boards)
+       seq))
+
+
+(defn except-board
+  [boards winner-boards]
+  (remove #(some 
+            (fn[b] (= b %))
+            winner-boards) 
+          boards))
+
+(defn first-win
+  [winning-boards _]
+  (seq winning-boards))
+
+(defn last-win
+  [winning-boards boards]
+  (= winning-boards boards))
 
 (defn find-solution
-  [mark scan]
+  [mark winning-cond]
  (fn step [numbers boards]
     (loop [[n & next-numbers] numbers
            boards boards]
       (let [boards (mark n boards)
-            winner-board (scan boards)]
+            winning-boards (scan-winner boards)
+            non-winning-boards (except-board boards winning-boards)]
         (cond 
-          winner-board [winner-board n]
+          (winning-cond winning-boards boards)
+          (do 
+            (clojure.pprint/pprint winning-boards)
+            [(first winning-boards) n]) 
+          
           (nil? n) nil
-          :else (recur next-numbers boards))))))
+          :else (recur next-numbers non-winning-boards))))))
+
+
 
 (defn calculate
   [board n]
@@ -151,14 +175,20 @@
        (remove second)
        (map first)
        (reduce +)
+       ((fn [n] (println n) n))
        (* n)))
 
-(defn solve []
+(defn solve 
+  [mark-boards scan-winner]
   (fn [input]
     (let [{:keys [boards numbers]} (parse-input input)
           boards (initialize-boards boards)
-          [board winning-number] ((find-solution mark-boards scan-winner) numbers boards)]
+          [board winning-number]
+          ((find-solution mark-boards scan-winner) numbers boards)]
+      (clojure.pprint/pprint winning-number)
+      (clojure.pprint/pprint board)
       (calculate board winning-number))))
+
 
 
 (comment
@@ -166,23 +196,26 @@
         (parse-input sample)
         boards (initialize-boards boards)]
     (mark-boards 10 boards))
-  
-  (scan-winner '((([22 true] [13 true] [17 true] [11 true] [0 false]) 
-                  ([8 true] [2 false] [23 false] [4 false] [24 false]) 
+
+  (scan-winner '((([22 true] [13 true] [17 true] [11 true] [0 false])
+                  ([8 true] [2 false] [23 false] [4 false] [24 false])
                   ([21 true] [9 false] [14 false] [16 false] [7 false])
-                  ([6 true] [10 true] [3 false] [18 false] [5 false]) 
-                  ([1 true] [12 false] [20 false] [15 false] [19 false])) 
+                  ([6 true] [10 true] [3 false] [18 false] [5 false])
+                  ([1 true] [12 false] [20 false] [15 false] [19 false]))
                  (([3 true] [15 false] [0 false] [2 false] [22 false]) ([9 false] [18 false] [13 false] [17 false] [5 false]) ([19 false] [8 false] [7 false] [25 false] [23 false]) ([20 false] [11 false] [10 true] [24 false] [4 false]) ([14 false] [21 false] [16 false] [12 false] [6 false])) (([14 false] [21 false] [17 false] [24 false] [4 false]) ([10 true] [16 false] [15 false] [9 false] [19 false]) ([18 false] [8 false] [23 false] [26 false] [20 false]) ([22 false] [11 false] [13 false] [6 false] [5 false]) ([2 false] [0 false] [12 false] [3 false] [7 false]))))
-  
+
   (apply concat '(([22 true] [13 true] [17 true] [11 true] [0 false])
                   ([8 true] [2 false] [23 false] [4 false] [24 false])
                   ([21 true] [9 false] [14 false] [16 false] [7 false])
                   ([6 true] [10 true] [3 false] [18 false] [5 false])
                   ([1 true] [12 false] [20 false] [15 false] [19 false])))
-  ((solve) sample)
-  
+  ((solve mark-boards first-win) sample)
+  ((solve mark-boards last-win) sample)
+
   (parse-input ())
 
-  ((solve) day4-input)
+  ((solve mark-boards first-win) day4-input)
+  ((solve mark-boards last-win) day4-input)
+
   )
 
