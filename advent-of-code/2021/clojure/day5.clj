@@ -219,7 +219,7 @@
         (min x2 x4)
         (get-y (min x2 x4) line1)])]
      :unoverlapped
-    (->>W
+    (->>
      [(when (not= x1 x3)
         (create-line
          [(min x1 x3)
