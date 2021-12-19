@@ -65,21 +65,19 @@
    :p2 [x y]
    :e {:a 1 :b 2 :c 3}})
 
-(defn equals
-  "ax + by + c = 0,
-   (y2 -y1)x + (x1-x2)y + x2y1 - x1y2 = 0"
-  [x1 y1 x2 y2]
-   {:a (- y2 y1)
-    :b (- x1 x2)
-    :c (- (* x2 y1) (* x1 y2))})
-
 (defn create-line
-  [[x1 y1 x2 y2]]
+  [[x1 y1 x2 y2 :as pt]]
+  (println pt)
   {:p1 {:x x1 :y y1}
    :p2 {:x x2 :y y2}
    :max {:x (max x1 x2) :y (max y1 y2)}
    :min {:x (min x1 x2) :y (min y1 y2)}
-   :equals (equals x1 y1 x2 y2)})
+   :equals {:a (- y2 y1)
+            :b (- x1 x2)
+            :c (- (* x2 y1) (* x1 y2))}})
+(defn calculate
+  [{:keys [x y]} {{:keys [a b c]} :equals}]
+  (+ (* a x) (* b y) c))
 
 (defn parse-line
   [line]
@@ -94,129 +92,168 @@
   (->> (string/split-lines input)
        (map parse-line)))
 
-(defn line-in?
-  [[x y] {{:keys [a b c]} :equals}]
-  (zero? (+ (* a x) (* b y) c)))
+(defn straight-line-in?
+  [p line]
+  (zero? (calculate p line)))
 
-(defn cross?
-  [{{b1 :b a1 :a} :equals}
-   {{b2 :b a2 :a} :equals}]
-  (zero? (+ (* b1 b2)
-            (* a1 a2))))
+(defn area-in?
+  [{:keys [x y]} {{ys :y xs :x} :min
+                  {yl :y xl :x} :max}]
+  (and 
+       (<= xs x xl)
+       (<= ys y yl)))
 
+(defn point-included?
+  [p line]
+  (and (straight-line-in? p line)
+       (area-in? p line)))
 
-(defn overlapped-vertical-line
- [{{l1xl :x l1yl :y} :max
-   {l1xs :x l1ys :y} :min}
-  {{l2xl :x l2yl :y} :max 
-   {l2xs :x l2ys :y} :min}]
-  (when 
-   (and (= l1yl l1ys l2yl l2ys)
-        (not (or (< l1xl l2xs)
-                 (< l2xl l1xs))))
-    (let [[nx0 nx1 nx2 nx3]
-          (sort [l1xl l1xs l2xl l2xs])]
-      {:overlapped
-       [(create-line
-         [nx1 l1yl nx2 l1yl])]
-       :unoverlapped
-       [(create-line
-         [nx0 l1yl (dec nx1) l1yl])
-        (create-line
-         [(inc nx2) l1yl nx3 l1yl])]})))
+(defn excluded-but-straight?
+  [p line]
+  (and (not (area-in? p line))
+       (straight-line-in? p line)))
 
-(defn overlapped-horizontal-line
-  [{{l1xl :x l1yl :y} :max
-    {l1xs :x l1ys :y} :min}
-   {{l2xl :x l2yl :y} :max
-    {l2xs :x l2ys :y} :min}]
-  (when
-   (and (= l1xl l1xs l2xl l2xs)
-        (not (or (< l1yl l2ys)
-                 (< l2yl l1ys))))
-    (let [[ny0 ny1 ny2 ny3]
-          (sort [l1yl l1ys l2yl l2ys])]
-      {:overlapped
-       [(create-line
-         [l1xl ny1 l1xs ny2])]
-       :unoverlapped
-       [(create-line
-         [l1xl ny0 l1xl (dec ny1)])
-        (create-line
-         [l1xl (inc ny2) l1xl ny3])]})))
+(defn line-included?
+  [{{x1 :x y1 :y} :p1
+    {x2 :x y2 :y} :p2} line]
+  (and (point-included? [x1 y1] line)
+       (point-included? [x2 y2] line)))
 
-(defn overlap-points
-  [[min-x1 max-x1] [min-x2 max-x2]]
-  (let [[x0 x1 x2 x3] (sort [min-x1 min-x2 min-x2 max-x2])]
-    (cond
-      (= x0 x1 x2 x3)
-      {:overlapped
-       [[x0 x0]]
-       :unoverlapped
-       []}
-      
-      (= x0 x1 x2) 
-      {:overlapped
-       [[x0 x0]]
-       :unoverlapped
-       [[(inc x0) x3]]}
-      
-      (= x1 x2 x3) 
-       {:overlapped
-        [[x1 x1]]
-        :unoverlapped
-        [[x0 (dec x1)]]}
+(defn line-intersected?
+  [{p1 :p1 p2 :p2} line]
+  (or (and (point-included? p1 line)
+           (excluded-but-straight? p2 line))
+      (and (point-included? p2 line)
+           (excluded-but-straight? p1 line))))
 
-      (and
-       (< x0 x1 x2 x3)
-       (< (min max-x1 max-x2) (max min-x1 min-x2)))
-      {:overlapped
-       [[x1 x2]]
-       :unoverlapped
-       [[x0 (dec x1)]
-        [(inc x2) x3]]}
-      
-      (and
-       (< x0 x1 x2 x3)
-       (< (max min-x1 min-x2) (min max-x1 max-x2)))
-      {:overlapped
-       []
-       :unoverlapped
-       [[x0 x1] [x2 x3]]}
+(defn point-intersected?
+  [{p1 :p1 p2 :p2} line]
+  (not (or
+        (< 0 (calculate p1 line) (calculate p2 line))
+        (> 0 (calculate p1 line) (calculate p2 line)))))
 
-      (and (< x0 x1 x3)
-           (= x1 x2))
-      {:overlapped
-       [[x1 x2]]
-       :unoverlapped
-       [[x0 (dec x1)]
-        [(inc x1) x3]]})))
+(defn get-x 
+  [y {{x :x} :p1
+      {:keys [a b c]} :equals}]
+  (if (not (zero? a))
+    (-> (* b y)
+        (+ c)
+        (/ a)
+        -)
+    y))
+
+(defn get-y
+  [x {{y :y} :p1
+      {:keys [a b c]} :equals}]
+  (if (not (zero? b))
+    (-> (* a x)
+        (+ c)
+        (/ b)
+        -)
+    y))
+
+(defn intersection-point
+  [{{x1 :x y1 :y} :p1
+    {x2 :x y2 :y} :p2}
+   {{x3 :x y3 :y} :p1
+    {x4 :x y4 :y} :p2}]
+  (let [denominator
+        (- (* (- x1 x2)
+              (- y3 y4))
+           (* (- y1 y2)
+              (- x3 x4)))]
+    {:x (/ (- (* (- (* x1 y2) (* y1 x2))
+                 (- x3 x4))
+              (* (- x1 x2)
+                 (- (* x3 x4)
+                    (* y3 x4))))
+           denominator)
+     :y (/ (- (* (- (* x1 y2) (* y1 x2))
+                 (- y3 y4))
+              (* (- y1 y2)
+                 (- (* x3 x4)
+                    (* y3 x4))))
+           denominator)}))
+
+(defn exclude-point
+  [{:keys [x y]} {{x1 :x y1 :y} :p1
+                 {x2 :x y2 :y} :p2}]
+  (let [x3 (cond
+             (< x x1) (inc x)
+             (< x1 x) (dec x)
+             (= x1 x) nil)
+        x4 (cond
+             (< x x2) (inc x)
+             (< x2 x) (dec x)
+             (= x2 x) nil)
+        y3 (cond
+             (< y y1) (inc y)
+             (< y1 y) (dec y)
+             (= y1 y) nil)
+        y4 (cond
+             (< y y2) (inc y)
+             (< y2 y) (dec y)
+             (= y2 y) nil)]
+    (->> [(when (and x3 y3)
+            (create-line [x1 y1 x3 y3]))
+          (when (and x4 y4)
+            (create-line [x4 y4 x2 y2]))]
+         (keep identity))))
 
 (defn overlap-line
-  [{{l1xl :x l1yl :y} :max
-    {l1xs :x l1ys :y} :min}
-   {{l2xl :x l2yl :y} :max
-    {l2xs :x l2ys :y} :min}]
-  (let [{overlap-x :overlapped
-         unoverlap-x :unoverlapped} 
-        (overlap-points [l1xs l1xl] [l2xs l2xl])
-
-        {overlap-y :overlapped
-         unoverlap-y :unoverlapped} 
-        (overlap-points [l1ys l1yl] [l2ys l2yl])]
+  [{{x1 :x y1 :y} :min
+    {x2 :x y2 :y} :max    :as line1}
+   {{x3 :x y3 :y} :min
+    {x4 :x y4 :y} :max    :as _line2}]
+  (println x4)
+  (println line1)
+  (cond
+    (and
+     (not= (min x1 x3) (max x1 x3) (min x2 x4) (max x2 x4))
+     (<= (min x1 x3) (max x1 x3) (min x2 x4) (max x2 x4)))
     
-    
-    
-    )
- )
+    {:overlapped
+     [(create-line
+       [(max x1 x3)
+        (get-y (max x1 x3) line1)
+        (min x2 x4)
+        (get-y (min x2 x4) line1)])]
+     :unoverlapped
+    (->>W
+     [(when (not= x1 x3)
+        (create-line
+         [(min x1 x3)
+          (get-y (min x1 x3) line1)
+          (dec (max x1 x3))
+          (get-y (dec (max x1 x3)) line1)]))
+      (when (not= x2 x4)
+        (create-line
+         [(inc (min x2 x4))
+          (get-y (inc (min x2 x4)) line1)
+          (dec (max x2 x4))
+          (get-y (dec (max x2 x4)) line1)]))]
+     (keep identity))}
 
-
+    (and 
+     (not= (min y1 y3) (max y1 y3) (min y2 y4) (max y2 y4))
+     (<= (min y1 y3)
+         (max y1 y3)
+         (min y2 y4)
+         (max y2 y4)))
+    {:overlapped
+     [(create-line
+       [(get-x (max y1 y3) line1)
+        (max y1 y3)
+        (get-x (min y2 y4) line1)
+        (min y2 y4)])]
+     :unoverlapped []}))
 
 (comment 
   (def a1 (create-line [0 3 0 2]))
   (def a2 (create-line [0 2 0 8]))
   
-  (overlapped a1 a2))
+  (overlap-line a1 a2)
+  )
 
 (defn count-point
   [[[x1 y1] [x2 y2]]]
@@ -226,7 +263,6 @@
 (defn solve [input-str]
   (->> (string/split-lines input-str)
        (map parse-line)
-       (overlap-all)
        (map count-point)
        (reduce +)
        (* 0.5)
